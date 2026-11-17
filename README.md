@@ -1,97 +1,201 @@
-# Welcome to your Expo app 👋
+# InvitationCardApp
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A cross-platform (iOS, Android, web) starter built on **Expo SDK 58** and **Expo Router**. It ships with a themed component kit, an authenticated API client, TanStack Query wiring, and server-side API routes with a multi-database SQL helper. Use it as the base for new apps.
 
-## Get started
+## Tech stack
 
-1. Install dependencies
+| Area          | Choice                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| Framework     | Expo SDK 58, React Native 0.88, React 19.3 (React Compiler enabled)                          |
+| Navigation    | Expo Router (file-based, typed routes)                                                       |
+| Data fetching | TanStack Query v5 + axios (`fetch` adapter)                                                  |
+| Auth storage  | `expo-secure-store` (Keychain / Keystore); `localStorage` fallback on web                    |
+| Server        | Expo Router API routes (`web.output: "server"`)                                              |
+| Database      | PostgreSQL (`pg`), MySQL (`mysql2`), or SQLite (`node:sqlite`), selected by URL              |
+| Quality       | TypeScript, ESLint (`eslint-config-expo`), Prettier, Jest (`jest-expo`), Husky + lint-staged |
 
-   ```bash
-   npm install
-   ```
+## Getting started
 
-2. Start the app
+### Prerequisites
 
-   ```bash
-   npx expo start
-   ```
+- Node.js 22.5 or newer (needed for the built-in `node:sqlite` driver; 20+ is fine if you use Postgres or MySQL)
+- npm (the repo uses `package-lock.json`)
+- For device testing: the iOS Simulator / Android Emulator, or a physical device
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Install and run
 
 ```bash
-npm run reset-project
+npm install
+cp .env.example .env.local   # then set DATABASE_URL
+npm start                    # or: npm run ios | npm run android | npm run web
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+From the Expo CLI you can open the app in a [development build](https://docs.expo.dev/develop/development-builds/introduction/), an emulator/simulator, [Expo Go](https://expo.dev/go), or the browser.
 
-### Other setup steps
+> Expo Go only includes the native modules it bundles. After adding a library with native code, build a development client with `npx expo run:ios` / `npx expo run:android` or `npx eas-cli@latest build --profile development`.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Environment variables
 
-## Learn more
+| Variable              | Where it's read | Purpose                                                                                                                                                                |
+| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`        | Server only     | Database connection. The URL scheme picks the driver: `postgresql://`, `mysql://`, or `sqlite:./path.db`. Defaults to `postgresql://localhost:5432/invitationcardapp`. |
+| `EXPO_PUBLIC_API_URL` | Client          | Base URL for the API client. Leave unset to call the app's own API routes (`/api/...`).                                                                                |
 
-To learn more about developing your project with Expo, look at the following resources:
+Keep secrets in `.env.local` (git-ignored) and **never** prefix server-only values with `EXPO_PUBLIC_`; anything with that prefix is inlined into the client bundle.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Scripts
 
-## Join the community
+| Command                           | Description                                                      |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `npm start`                       | Start the Expo dev server                                        |
+| `npm run ios` / `android` / `web` | Start and open on a specific platform                            |
+| `npm run lint`                    | Lint with `expo lint`                                            |
+| `npm run typecheck`               | Type-check with `tsc --noEmit`                                   |
+| `npm test`                        | Run Jest tests (`npm run test:watch` for watch mode)             |
+| `npm run format`                  | Format with Prettier (`format:check` to verify only)             |
+| `npm run reset-project`           | Move the starter code to `example/` and create a blank `src/app` |
 
-Join our community of developers creating universal apps.
+Other useful commands:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo install <package>   # add dependencies (resolves SDK-compatible versions)
+npx expo install --fix       # fix incompatible package versions
+npx expo-doctor              # diagnose dependency and config issues
+```
 
-## Tooling
+## Project structure
 
-| Command                              | What it does        |
-| ------------------------------------ | ------------------- |
-| `npm test` / `npm run test:watch`    | Jest (`jest-expo`)  |
-| `npm run format` / `format:check`    | Prettier            |
-| `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
+```
+src/
+├── app/                    # Routes (Expo Router) — every file is a screen
+│   ├── _layout.tsx         # Root layout: QueryProvider → AuthProvider → ThemeProvider → tabs
+│   ├── index.tsx           # Home tab
+│   ├── explore.tsx         # Explore tab (component & palette showcase)
+│   └── api/
+│       └── health+api.ts   # GET /api/health — database health check
+├── components/             # Themed UI kit (ThemedText, ThemedView, ThemedButton, ThemedCard, …)
+│   └── ui/                 # Small UI primitives (Collapsible)
+├── constants/
+│   ├── palette.ts          # Brand color scale (light/dark) and status colors
+│   └── theme.ts            # Semantic color roles, spacing, layout constants
+├── hooks/                  # useTheme, useColorScheme (with .web variants)
+├── lib/
+│   ├── api/client.ts       # Shared axios client with auth + token refresh
+│   └── auth/               # Token storage and the "unauthorized" event bus
+├── providers/              # QueryProvider, AuthProvider
+├── server/db.ts            # Server-only SQL helper (Postgres / MySQL / SQLite)
+└── global.css              # Web-only global styles
+assets/                     # Icons, splash, images
+scripts/reset-project.js    # Starter reset script
+test/                       # Jest stubs
+```
 
-Husky hooks install on `npm install`:
+Keep non-route code (components, hooks, utilities) outside `src/app/`. Files ending in `.web.tsx` / `.web.ts` override their native counterparts on web. Import from `src` with the `@/` alias (e.g. `@/components/themed-text`).
 
-- **pre-commit** runs Prettier, ESLint and related tests on staged files.
-- **pre-push** runs the typecheck and the full test suite.
+## Architecture
 
-Name test files `*-test.ts(x)` inside a `__tests__` folder, and keep them out of `src/app` (every file there is a route).
+### Theming
 
-## Database
+Colors are defined in two layers:
 
-`src/server/db.ts` connects to the database named by `DATABASE_URL`. PostgreSQL is the default, and the URL scheme switches the driver:
+1. **`constants/palette.ts`** — the raw brand scale (`100`–`900`) for light and dark mode, plus status colors.
+2. **`constants/theme.ts`** — semantic roles (`text`, `background`, `accent`, `primaryBtnBackground`, …) mapped from the palette.
 
-| Database   | `DATABASE_URL`                              |
-| ---------- | ------------------------------------------- |
-| PostgreSQL | `postgresql://user:pass@host:5432/db`       |
-| MySQL      | `mysql://user:pass@host:3306/db`            |
-| SQLite     | `sqlite:./data/app.db` or `sqlite::memory:` |
+Change shades in the palette and roles in the theme. Components read the active colors with `useTheme()`. The themed components expose variants:
 
-Copy `.env.example` to `.env.local` to configure it. To support another database, add an entry to `drivers` in `db.ts`.
+- `ThemedText` — `type`, `tone` (`primary | secondary | accent | success | danger`), `weight`
+- `ThemedButton` — `variant` (`primary | secondary | border | text | shadow`), `tone`, `size`
+- `ThemedCard` — `variant` (`filled | outlined | elevated`), `padding`
 
-The app never connects to the database directly: drivers don't run on devices, and credentials would ship inside the app. Screens call API routes, and API routes use `db.ts`. ESLint rejects `@/server` imports anywhere else.
+The **Explore** tab renders all variants and the full palette, so you can preview changes live.
+
+### API client and authentication
+
+`src/lib/api/client.ts` exports a shared axios instance (`apiClient`):
+
+- Uses the **`fetch` adapter**, so relative URLs like `/api/...` resolve against the Expo dev server (and the configured origin in production).
+- Attaches `Authorization: Bearer <accessToken>` to every request. Pass `{ skipAuth: true }` to opt out.
+- On a `401`, it calls `POST /api/auth/refresh` with `{ refreshToken }` once (concurrent 401s share one refresh), saves the new tokens, and replays the request. If refreshing fails, it clears tokens and emits an _unauthorized_ event.
+
+`AuthProvider` exposes `useAuth()`:
+
+```tsx
+const { status, isAuthenticated, signIn, signOut } = useAuth();
+await signIn({ accessToken, refreshToken }); // store tokens returned by your login endpoint
+```
+
+`status` is `'loading' | 'signedIn' | 'signedOut'`. Signing out (or an unrecoverable 401) clears tokens and the query cache.
+
+> **Not implemented yet:** the login and `/api/auth/refresh` endpoints. Add them as API routes or point `EXPO_PUBLIC_API_URL` at a backend that implements this contract: `POST { refreshToken } → 200 { accessToken, refreshToken? }`.
+
+### Data fetching
+
+`QueryProvider` creates the TanStack Query client with sensible mobile defaults:
+
+- `staleTime` of 30 seconds
+- Retries network and 5xx errors up to twice; never retries 4xx errors. Mutations never retry.
+- Refetches stale queries when the app returns to the foreground (`AppState`)
+- Pauses queries while offline and resumes on reconnect (`expo-network`)
+
+```tsx
+const { data } = useQuery({
+  queryKey: ['invitations'],
+  queryFn: async () => (await apiClient.get('/api/invitations')).data,
+});
+```
+
+### API routes and database
+
+Server code lives in `+api.ts` files under `src/app/` and runs on the server only. Use the `sql` tagged template from `@/server/db`:
 
 ```ts
-// src/app/api/guests+api.ts
 import { sql } from '@/server/db';
 
 export async function GET(request: Request) {
-  const eventId = new URL(request.url).searchParams.get('eventId');
-  return Response.json(await sql`SELECT * FROM guests WHERE event_id = ${eventId}`);
+  const id = new URL(request.url).searchParams.get('id');
+  const rows = await sql<{
+    id: number;
+    title: string;
+  }>`SELECT id, title FROM invitations WHERE id = ${id}`;
+  return Response.json(rows);
 }
 ```
 
-Interpolated values are sent as bound parameters. In production, native apps need the API deployed and its URL set as `origin` on the `expo-router` plugin in `app.json`. SQLite needs Node 22.13 or later. `src/app/api/health+api.ts` reports whether the database is reachable.
+- Interpolated values are always sent as **bound parameters**, so they are safe from SQL injection and the same query runs on every driver.
+- The connection is created lazily and shared across routes; only the driver for the selected database needs to be installed at runtime.
+- **Never import `@/server/db` from screens or components** — database drivers don't run on devices, and credentials must stay off the client.
+
+Check the connection with `GET /api/health` (returns `{ "status": "ok" }`, or `503` on failure).
+
+## Testing and code quality
+
+- Tests live next to the code in `__tests__/` folders and run with `jest-expo`.
+- **Pre-commit** (Husky + lint-staged): Prettier, `eslint --fix`, and related Jest tests on staged files.
+- **Pre-push**: `npm run typecheck` and the full test suite.
+
+Run `npm run lint` and `npm run typecheck` before opening a pull request.
+
+## Building and deploying
+
+Native projects (`ios/`, `android/`) are generated by [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/). Don't edit them by hand; configure native behavior in `app.json` and config plugins.
+
+Use [EAS](https://docs.expo.dev/eas/) to build, submit, and update:
+
+```bash
+npx eas-cli@latest build --platform all       # cloud builds
+npx eas-cli@latest submit                     # submit to the stores
+npx eas-cli@latest update                     # over-the-air JS updates
+```
+
+Because the web build uses server output, deploy it to a host that supports Expo Router API routes (for example [EAS Hosting](https://docs.expo.dev/eas/hosting/introduction/)).
+
+## Resources
+
+- [Expo documentation](https://docs.expo.dev/)
+- [Expo Router](https://docs.expo.dev/router/introduction/)
+- [API routes](https://docs.expo.dev/router/web/api-routes/)
+- [TanStack Query](https://tanstack.com/query/latest)
+
+## License
+
+[MIT](LICENSE)
