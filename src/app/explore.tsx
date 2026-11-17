@@ -3,7 +3,11 @@ import { SymbolView } from 'expo-symbols';
 import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ButtonVariantsShowcase } from '@/components/button-variants-showcase';
+import { CardVariantsShowcase } from '@/components/card-variants-showcase';
+import { ColorPaletteShowcase } from '@/components/color-palette-showcase';
 import { ExternalLink } from '@/components/external-link';
+import { TextVariantsShowcase } from '@/components/text-variants-showcase';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Collapsible } from '@/components/ui/collapsible';
@@ -60,6 +64,22 @@ export default function TabTwoScreen() {
         </ThemedView>
 
         <ThemedView style={styles.sectionsWrapper}>
+          <Collapsible title="Colors">
+            <ColorPaletteShowcase />
+          </Collapsible>
+
+          <Collapsible title="Card variants">
+            <CardVariantsShowcase />
+          </Collapsible>
+
+          <Collapsible title="Text variants">
+            <TextVariantsShowcase />
+          </Collapsible>
+
+          <Collapsible title="Button variants">
+            <ButtonVariantsShowcase />
+          </Collapsible>
+
           <Collapsible title="File-based routing">
             <ThemedText type="small">
               This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
