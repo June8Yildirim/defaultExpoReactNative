@@ -1,0 +1,151 @@
+# Builds the Android and iOS apps from source on GitHub runners, without EAS cloud or an Expo account.
+#
+#   Android → release APK (signed with the debug keystore from the prebuild template: install it on
+#             devices and emulators, but don't upload it to Google Play)
+#   iOS     → unsigned Release .app for the iOS Simulator (no Apple account needed)
+#
+# Native folders are generated with `expo prebuild` (Continuous Native Generation); they are
+# git-ignored and never committed. Builds are attached to the run as downloadable artifacts.
+#
+# For store-ready, signed builds use EAS: `npx eas-cli@latest build`.
+
+name: Build native apps
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        type: choice
+        options: [all, android, ios]
+        default: all
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'LICENSE']
+  pull_request:
+    paths-ignore: ['**.md', 'LICENSE']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 22
+  JAVA_VERSION: 17
+  # Skip installing git hooks in CI.
+  HUSKY: 0
+  # Inlined into the JS bundle. Set it in Settings → Secrets and variables → Actions → Variables.
+  EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+
+jobs:
+  checks:
+    name: Lint, typecheck & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --ci
+
+  android:
+    name: Android (release APK)
+    needs: checks
+    if: github.event_name != 'workflow_dispatch' || inputs.platform != 'ios'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: gradle
+
+      - run: npm ci
+
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew app:assembleRelease --no-daemon --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  ios:
+    name: iOS (simulator build)
+    needs: checks
+    if: github.event_name != 'workflow_dispatch' || inputs.platform != 'android'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: pods-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install
+
+      - name: Build for iOS Simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
+          SCHEME="${WORKSPACE%.xcworkspace}"
+          echo "Building scheme $SCHEME"
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Zip .app bundle
+        working-directory: ios/build/Build/Products/Release-iphonesimulator
+        run: |
+          APP=$(ls -d *.app | head -n 1)
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "$GITHUB_WORKSPACE/ios-simulator.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-app
+          path: ios-simulator.zip
+          if-no-files-found: error
+          retention-days: 14

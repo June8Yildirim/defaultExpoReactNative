@@ -3,7 +3,8 @@ const expoConfig = require('eslint-config-expo/flat');
 const prettierConfig = require('eslint-config-prettier/flat');
 
 module.exports = defineConfig([
-  globalIgnores(['dist/*', '.expo/*', 'coverage/*']),
+  // server/ packages have their own toolchains.
+  globalIgnores(['dist/*', '.expo/*', 'coverage/*', 'server/*']),
   expoConfig,
   prettierConfig,
   {

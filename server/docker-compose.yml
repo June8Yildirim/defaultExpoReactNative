@@ -1,0 +1,109 @@
+# Local stack for the backends. Run from server/ (or use the npm scripts in the repo root).
+#
+#   docker compose up -d                      MongoDB + Redis only (run a server on the host with npm run dev)
+#   docker compose --profile express up -d    MongoDB + Firebase Auth emulator + Express  (:4000)
+#   docker compose --profile nest up -d       MongoDB + Firebase Auth emulator + Nest     (:4001)
+#   docker compose --profile all up -d        everything
+#
+# Servers read optional secrets from server/<name>/.env; the values below override it so the
+# containers reach each other by service name. To use a real Firebase project instead of the
+# emulator, set FIREBASE_AUTH_EMULATOR_HOST= (empty) in server/.env and put the service-account
+# fields and FIREBASE_WEB_API_KEY in server/<name>/.env.
+
+x-server-env: &server-env
+  NODE_ENV: production
+  MONGODB_URI: mongodb://mongo:27017/invitationcardapp
+  REDIS_URL: redis://redis:6379
+  CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
+  FIREBASE_AUTH_EMULATOR_HOST: ${FIREBASE_AUTH_EMULATOR_HOST-firebase:9099}
+  FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-demo-invitationcardapp}
+
+x-server: &server
+  restart: unless-stopped
+  depends_on:
+    mongo:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    firebase:
+      condition: service_healthy
+
+services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    ports:
+      - '${MONGO_PORT:-27017}:27017' # set MONGO_PORT if a local mongod already uses 27017
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping")']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    # Cache and rate-limit counters only: no persistence; evict least-recently-used keys when full.
+    command:
+      [
+        'redis-server',
+        '--save',
+        '',
+        '--appendonly',
+        'no',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'allkeys-lru',
+      ]
+    ports:
+      - '${REDIS_PORT:-6379}:6379' # set REDIS_PORT if a local redis already uses 6379
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  firebase:
+    build:
+      context: .
+      dockerfile: firebase-emulator/Dockerfile
+    image: invitationcardapp/firebase-emulator
+    profiles: [express, nest, all, emulator]
+    restart: unless-stopped
+    ports:
+      - '9099:9099' # Auth emulator
+      - '4500:4500' # Emulator UI → http://localhost:4500
+
+  express:
+    <<: *server
+    build: ./express
+    image: invitationcardapp/server-express
+    profiles: [express, all]
+    env_file:
+      - path: ./express/.env
+        required: false
+    environment:
+      <<: *server-env
+      PORT: 4000
+    ports:
+      - '4000:4000'
+
+  nest:
+    <<: *server
+    build: ./nest
+    image: invitationcardapp/server-nest
+    profiles: [nest, all]
+    env_file:
+      - path: ./nest/.env
+        required: false
+    environment:
+      <<: *server-env
+      PORT: 4001
+    ports:
+      - '4001:4001'
+
+volumes:
+  mongo-data:

@@ -7,3 +7,4 @@ android
 coverage
 package-lock.json
 expo-env.d.ts
+server/**/dist

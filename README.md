@@ -12,6 +12,7 @@ A cross-platform (iOS, Android, web) starter built on **Expo SDK 58** and **Expo
 | Auth storage  | `expo-secure-store` (Keychain / Keystore); `localStorage` fallback on web                    |
 | Server        | Expo Router API routes (`web.output: "server"`)                                              |
 | Database      | PostgreSQL (`pg`), MySQL (`mysql2`), or SQLite (`node:sqlite`), selected by URL              |
+| Backends      | Optional Express or NestJS servers in `server/` with MongoDB, Redis, and Firebase Auth       |
 | Quality       | TypeScript, ESLint (`eslint-config-expo`), Prettier, Jest (`jest-expo`), Husky + lint-staged |
 
 ## Getting started
@@ -126,7 +127,14 @@ await signIn({ accessToken, refreshToken }); // store tokens returned by your lo
 
 `status` is `'loading' | 'signedIn' | 'signedOut'`. Signing out (or an unrecoverable 401) clears tokens and the query cache.
 
-> **Not implemented yet:** the login and `/api/auth/refresh` endpoints. Add them as API routes or point `EXPO_PUBLIC_API_URL` at a backend that implements this contract: `POST { refreshToken } → 200 { accessToken, refreshToken? }`.
+The login, register, and `/api/auth/refresh` endpoints are implemented by the backends in [`server/`](server/README.md) (Firebase Auth). Point `EXPO_PUBLIC_API_URL` at one of them and sign in with the helpers in `src/lib/auth/auth-api.ts`:
+
+```tsx
+const { signIn } = useAuth();
+await signIn(await loginWithEmail({ email, password })); // or registerWithEmail(...)
+```
+
+Any other backend works too if it implements `POST { refreshToken } → 200 { accessToken, refreshToken? }`.
 
 ### Data fetching
 
@@ -166,6 +174,24 @@ export async function GET(request: Request) {
 - **Never import `@/server/db` from screens or components** — database drivers don't run on devices, and credentials must stay off the client.
 
 Check the connection with `GET /api/health` (returns `{ "status": "ok" }`, or `503` on failure).
+
+## Backend servers (MongoDB + Firebase)
+
+`server/` holds two interchangeable API servers — **Express** (port 4000) and **NestJS** (port 4001) — with the same routes: auth (register, login, refresh, me) backed by Firebase Authentication, an example `invitations` resource stored in MongoDB, and Redis for caching and auth rate limiting. Each is its own npm package and is ignored by the app's TypeScript, ESLint, Jest, and Metro setup.
+
+```bash
+npm run server:db           # MongoDB + Redis via Docker
+npm run server:emulators    # Firebase Auth emulator (or configure a real project)
+npm --prefix server/express install && npm run server:express   # or server/nest + server:nest
+```
+
+Or run a whole stack (MongoDB + Firebase Auth emulator + server) in Docker:
+
+```bash
+npm run docker:express      # or docker:nest, docker:all; stop with docker:down
+```
+
+See [`server/README.md`](server/README.md) for routes, Firebase project setup, and environment variables.
 
 ## Testing and code quality
 
