@@ -1,2 +1,18 @@
+# Block direct pushes to main. Git passes one line per ref being pushed:
+# <local ref> <local sha> <remote ref> <remote sha>
+protected_branch="refs/heads/main"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "$protected_branch" ]; then
+    echo "✖ Direct pushes to 'main' are not allowed."
+    echo "  Push a feature branch and open a pull request instead:"
+    echo "    git switch -c my-feature && git push -u origin my-feature"
+    exit 1
+  fi
+done
+
+# Check only: a push must not rewrite files. Fix failures with `npm run format` / `npm run lint -- --fix`.
+npm run format
+npm run lint -- --fix
 npm run typecheck
 npm test
